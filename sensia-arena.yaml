@@ -1,0 +1,166 @@
+substitutions:
+  # Used only until the first status. See README.txt before enabling replies.
+  initial_settings: "0x06"
+  timezone: "Europe/Warsaw"
+
+esphome:
+  name: sensia-arena
+  friendly_name: Sensia Arena
+  min_version: 2026.9.1
+  includes:
+    - sensia_protocol.h
+  on_boot:
+    - lambda: |-
+        sensia::session.settings = ${initial_settings};
+        id(ble_connected).publish_state(false);
+        id(protocol_status).publish_state("Waiting for toilet");
+
+esp32:
+  board: seeed_xiao_esp32c3
+  framework:
+    type: esp-idf
+
+logger:
+  level: DEBUG
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+time:
+  - platform: sntp
+    id: local_time
+    timezone: ${timezone}
+
+globals:
+  - id: last_status_ms
+    type: uint32_t
+    restore_value: false
+    initial_value: '0'
+
+esp32_ble:
+  name: LIXIL
+  max_connections: 1
+
+esp32_ble_server:
+  max_clients: 1
+  on_connect:
+    - lambda: |-
+        sensia::session = sensia::Session{};
+        sensia::session.settings = ${initial_settings};
+        id(ble_connected).publish_state(true);
+        id(protocol_status).publish_state("BLE connected; awaiting packets");
+  on_disconnect:
+    - lambda: |-
+        sensia::session = sensia::Session{};
+        sensia::session.settings = ${initial_settings};
+        id(ble_connected).publish_state(false);
+        id(occupied).invalidate_state();
+        id(model_code).publish_state(NAN);
+        id(protocol_status).publish_state("Disconnected");
+  services:
+    - uuid: 6e400001-b5a3-f393-e0a9-e50e24dcca9e
+      advertise: true
+      characteristics:
+        - id: toilet_tx
+          uuid: 6e400003-b5a3-f393-e0a9-e50e24dcca9e
+          write: true
+          notify: true
+          descriptors:
+            - uuid: "2902"
+              read: true
+              write: true
+              value: [0, 0]
+              on_write:
+                - lambda: |-
+                    sensia::session.subscribed = x.size() == 2 && (x[0] & 1);
+        - uuid: 6e400002-b5a3-f393-e0a9-e50e24dcca9e
+          write: true
+          write_no_response: true
+          on_write:
+            - lambda: |-
+                ESP_LOGD("sensia", "RX %s", format_hex_pretty(x.data(), x.size()).c_str());
+                auto kind = sensia::session.receive(x.data(), x.size());
+                if (kind == sensia::Packet::INVALID) {
+                  ESP_LOGW("sensia", "Ignored packet of %u bytes", unsigned(x.size()));
+                  return;
+                }
+                if (kind == sensia::Packet::PAIRING) {
+                  id(protocol_status).publish_state("Pairing packet received");
+                } else {
+                  id(last_status_ms) = millis();
+                  id(occupied).publish_state(sensia::session.occupied);
+                  id(model_code).publish_state(sensia::session.model);
+                  id(protocol_status).publish_state("Status received");
+                }
+
+switch:
+  - platform: template
+    id: pairing_replies
+    name: Enable pairing replies
+    entity_category: config
+    optimistic: true
+    restore_mode: ALWAYS_OFF
+
+binary_sensor:
+  - platform: template
+    id: ble_connected
+    name: Toilet BLE connection
+    device_class: connectivity
+  - platform: template
+    id: occupied
+    name: Seat occupied
+    device_class: occupancy
+
+sensor:
+  - platform: template
+    id: model_code
+    name: Reported model code
+    entity_category: diagnostic
+    accuracy_decimals: 0
+    update_interval: never
+
+text_sensor:
+  - platform: template
+    id: protocol_status
+    name: Protocol status
+    entity_category: diagnostic
+    update_interval: never
+
+interval:
+  - interval: 250ms
+    then:
+      - if:
+          condition:
+            lambda: |-
+              return id(pairing_replies).state && sensia::session.pending_reply &&
+                     sensia::session.subscribed && id(local_time).now().is_valid();
+          then:
+            - ble_server.characteristic.set_value:
+                id: toilet_tx
+                value: !lambda |-
+                  auto now = id(local_time).now();
+                  return sensia::session.reply(now.month, now.day_of_month, now.hour, now.minute);
+            - ble_server.characteristic.notify:
+                id: toilet_tx
+            - lambda: |-
+                sensia::session.pending_reply = false;
+                ESP_LOGI("sensia", "Sent opcode 00, phase %u, settings 0x%02X",
+                         sensia::session.phase, sensia::session.settings | 1);
+  - interval: 5s
+    then:
+      - lambda: |-
+          // shortcut: freshness threshold is provisional until hardware cadence is measured.
+          if (sensia::session.have_status && millis() - id(last_status_ms) > 60000) {
+            id(occupied).invalidate_state();
+            id(model_code).publish_state(NAN);
+            id(protocol_status).publish_state("Status stale");
+          }

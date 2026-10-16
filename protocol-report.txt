@@ -1,0 +1,253 @@
+Repository note: APK, decompiled sources and raw evidence referenced below are retained in the original local investigation and are not included here.
+
+GROHE Sensia Arena: Bluetooth protocol and device control
+Static reverse-engineering report, 2026-10-16
+
+RESULT
+
+The normal remote-control entry point uses BLE. The phone is the advertising
+peripheral/GATT server; the toilet is the connecting central. Commands travel
+as phone notifications and status arrives as writes from the toilet. A controller
+that only scans for a toilet and connects as a BLE central will not reproduce
+this app's role.
+
+The app's handshake, outgoing frame builder, operation codes, custom setting
+encoders, and incoming status parser are recovered. This is an app-derived
+protocol specification, not a hardware-validated implementation.
+
+TARGET AND PROVENANCE
+
+Package: com.grohe.sensiaarena
+Version: 1.4.1, version code 12; min SDK 24, target SDK 36.
+APK: sensiaarena.apk, 51,193,490 bytes.
+SHA-256: aeb4ba965b093cbb0138659e41d2663b677acc77e5f96af6cececf0d87bb6c46
+Store: https://play.google.com/store/apps/details?id=com.grohe.sensiaarena
+Acquisition: https://apkpure.net/grohe-sensia-arena/com.grohe.sensiaarena/download
+The file digest matches the mirror's published digest. Its signing certificate
+was not independently verified against a Google Play installation.
+
+REA 6.5.0 and its pinned JADX headless 0.7.1 engine inspected the APK.
+JADX JAR SHA-256:
+6e5eacf500b64292bfb73c49797c1958f6ee44646e43e868039ae7feb573ff75
+Java: existing Homebrew OpenJDK 21.0.12.1.
+128 application classes were exported using the same JADX engine; see
+DumpApp.java, decompile.log and decompiled/. APK code was not executed.
+
+REA evidence, stored intact alongside this report:
+package-evidence.json
+  ev_d7a7214e186ec4383d0762504ce6343901cc679b64d36c96ff91784edb38ff83
+bluetooth-classes.json
+  ev_ef3985334e1716278342aaf1030e912bdb8a6e38312483743b5c0f84afde460a
+ble-packet-evidence.json
+  ev_6c6627a5a0cb7a7809f890748fa0eaa48008374354fc5cf35a88d7c53dede29a
+
+Source references below are relative to
+decompiled/com/grohe/sensiaarena/. Line numbers refer to this export, not the
+developer's original source. Decompilation is a derived representation.
+
+1. ACTIVE TRANSPORT
+
+activity/A001Activity.java:153 routes the normal remote button into NTR001;
+the debug alternate is also an NT activity. Both Bluetooth managers are
+initialized, but the bundled Classic path is not evidence that the user's
+toilet supports Classic SPP.
+
+BLEManager.java below means bluetooth/BLEManager.java.
+
+Advertised name: LIXIL.
+Service:       6e400001-b5a3-f393-e0a9-e50e24dcca9e
+Toilet writes: 6e400002-b5a3-f393-e0a9-e50e24dcca9e
+Phone notifies:6e400003-b5a3-f393-e0a9-e50e24dcca9e
+Notify CCCD:  00002902-0000-1000-8000-00805f9b34fb
+
+The UUIDs follow the Nordic UART pattern; that alone does not identify the
+toilet's chipset. The write characteristic has properties 12 (write plus
+write-without-response); notify has properties 24 (write plus notify).
+Permissions are 17 (read and write), without an encrypted-permission flag.
+Advertising is connectable, includes service UUID and name, uses mode 2,
+TX power setting 0, and timeout 0. Notifications are unconfirmed.
+Sources: BLEManager.java:269, 313, 435, 464, 494.
+
+2. APP-LEVEL HANDSHAKE
+
+All byte offsets in this report are zero-based. Treat byte values as unsigned
+unless explicitly reproducing Java signed-byte behavior.
+
+The first accepted connection sets state 1 (connecting). For an incoming
+packet p, (p[19] & 0xF0) == 0 identifies a pairing request. The app copies
+p[3..8] into six identity fields named MAC address. If p[9] == 1 it remains
+connecting and sends opcode 00. Otherwise it sets state 2 (connected), sends
+opcode 00, and marks custom settings sent.
+
+An initial non-pairing status can also complete connection: save the identity
+to local history, enter state 2, and send opcode 00. Outgoing wire bytes
+13..18 echo the received identity, and byte 19 encodes phase 1 or 2.
+
+No PIN, challenge-response or application encryption appears in this inspected
+BLE handshake. That does not establish the toilet firmware's admission policy
+or all Bluetooth link security. The normal physical pairing procedure still
+needs to be followed and observed on the actual model.
+
+Sources: BLEManager.java:283, 953, 990, 994; toilet/NToiletConnectionManager.java:118,144.
+The SQLite T_ToiletInfo table stores names and identity/MAC history, not a
+cryptographic credential in these methods.
+
+3. PHONE-TO-TOILET FRAME
+
+Exactly 20 bytes are notified. A 19-byte common payload is prepended with 00:
+
+  wire[0]       00
+  wire[1]       operation code
+  wire[2]       custom strength, temperature, width
+  wire[3]       custom massage/position, plus bit 7 status/drainage flag
+  wire[4]       common settings and connected/connecting flag
+  wire[5..7]    packed local date/time
+  wire[8..11]   optional schedule fields
+  wire[10]      bit 6 is always set, even with no schedule
+  wire[12]      zero in the common builder
+  wire[13..18]  six identity bytes from handshake
+  wire[19]      1 connecting, 2 connected; other state behavior in source
+
+wire[4]: bits 7..6 auto-wash delay; bit 5 seat-heater-off; bits 4..2 encoded
+seat temperature; bit 1 auto-wash enabled; bit 0 set in states 1 and 2.
+Seat-temperature UI indexes 1..5 map to 1,3,5,6,7 before shifting left 2;
+other indexes map to zero.
+
+Date/time, truncate each result to one byte:
+  wire[5] = (month_zero_based << 4) | ((day_of_month - 1) >> 1)
+  wire[6] = ((day_of_month - 1) << 7) | (hour << 2) | (minute >> 4)
+  wire[7] = minute << 4
+
+wire[3] bit 7 is state-dependent: with REQ_TOILET_STATUS true, it is the
+inverse of auto-drainage mode and the request flag is consumed; otherwise
+it is set when auto-drainage mode is active.
+
+Schedule fields are generated only when isTimeSettingSendding is true.
+They encode power-saving/room-refresh choice, repeat, relative start time,
+and duration. The recovered builder is retained at BLEManager.java:613-687;
+its minute rounding and relative-time arithmetic need capture validation.
+
+sendMessage(byte[]) ORs at most three supplied bytes into payload offsets
+0..2 (wire 1..3). There is no app checksum added in the send path.
+Commands cannot be implemented as isolated one-byte writes. Preserve the
+current settings and identity when building even a stop or lid command.
+Sources: BLEManager.java:494, 562, 576, 709.
+
+4. RECOVERED OPERATION CODES
+
+These are labels from app methods; model support is not proven for every code.
+BLEManager.java:726-949 contains the implementations.
+
+  00  handshake/settings response, schedule detail
+  37  open lid                   27  open seat
+  47  close                      F2  stop
+  F3  large flush                B3  small flush
+  31  nozzle cleaning            41  body cleaning
+  4A  shower nozzle cleaning     CA  bidet nozzle cleaning
+  DA  nozzle guard cleaning      DB  deodorizer change
+  F5  ion change                 A7/87 full-auto seat true/false argument
+  D9  auto deodorizer change     3B  deodorizer boost / pure wash
+  F1  power saving / room refresh change
+  21  extra power saving         53  auto-wash start time change
+  43/63 weaker spray true/false argument; 43 also blue LED
+  73  illumination change        D8  freeze proofing
+  A9  operation sound            C9  seat auto-heater-off change
+  C3  restore toilet defaults    88  foam
+  9A  start descaling            BA  descaling error drainage
+
+Wash strength argument indexes 0..5:
+  Rear:  2E 3E 4E 5E 6E 7E
+  Mild:  8E AE 9E BE CE EE  (BLE order; Classic differs at indexes 1 and 2)
+  Bidet: AD BD CD DD ED FD
+Dry argument indexes 0..2: 5B 6B 7B.
+
+Methods named Change often represent changes/toggles, not idempotent setters.
+Do not infer an absolute on/off command from the English label alone.
+
+Custom wash settings:
+  wire[2] bits 7..5: strength indexes 0..5 -> codes 1,2,3,4,5,6
+  wire[2] bits 4..2: temperature indexes 0..5 -> codes 1,3,4,5,6,7
+  wire[2] bits 1..0: rear/mild width indexes 0..2 -> codes 1,3,2
+                     bidet width indexes 0..2 -> codes 1,2,3
+  wire[3] bits 6..4: massage indexes 1..5 -> codes 2,3,4,5,6; otherwise 0
+  wire[3] bits 3..0: position indexes 0..4 -> codes 1,3,5,7,9
+These are UI index mappings, not degrees Celsius or physical pressure units.
+Sources: BLEManager.java:78-179; activity/nt/NTR004Activity.java:169.
+
+5. TOILET-TO-PHONE STATUS
+
+The status parser requires exactly 20 bytes, passed directly from the incoming
+write without stripping the leading byte used in the outgoing format.
+Source: toilet/NToiletInfoManager.java:531-861.
+
+  p[0..8]   packed usage/energy counters (see caveats below)
+  p[9]      model bits 7..6; grade bits 5..3; water-up bit 2; type bit 1
+  p[10]     upper sensor bit 7; lower sensor bit 6; occupied bit 5;
+            timestamp bit 4; auto-seat mode bit 3; auto-deodorizer bit 2;
+            blue LED bit 1; one-touch power saving bit 0
+  p[11]     extra power saving bit 7; auto-wash delay bits 6..5;
+            weaker spray bit 4; illumination-off bit 3; music bits 2..0
+  p[12]     morning/night bit 7; auto-drainage bit 5; freeze bit 4;
+            buzzer bit 3; heater-off bit 2; dryer temperature bits 1..0
+  p[13]     seat temperature bits 7..5; room heat bit 4; auto-flush bit 3;
+            auto-seat bit 2; cold prevention bit 1; light bit 0
+  p[14]     shower-use bits 5..4; abnormal state bits 3..0
+  p[15]     spray strength (p[15] & E0) >> 5;
+            temperature literally (p[15] & 1C) >> 3; width p[15] & 03
+  p[16]     massage bits 6..4; position bits 3..0
+  p[17]     ion bits 5..4; prewash bit 3; language bits 2..0
+  p[19]     bit 0 acknowledges schedule/settings sending
+
+The parser also interprets p[5] bits 1/2/0 as descaling/error/recommendation.
+This overlaps counter parsing; model-specific interpretation needs validation.
+Its model constants name 0 Emerald, 1 Citrine, 2 Arena Wall, 3 Arena Floor;
+additional generation constants exist, but this does not identify the user's
+physical model. Source: NToiletInfoManager.java:9-19.
+
+Status changes notify UI listeners for seat occupancy, shower stop, dryer stop,
+and descaling. Firmware enforcement of occupancy interlocks is not established
+by these UI transitions.
+
+6. BUNDLED CLASSIC PATH
+
+ClassicBluetoothManager uses Android bonding and insecure RFCOMM socket API
+with SPP UUID 00001101-0000-1000-8000-00805F9B34FB. Discovery UI filters names
+containing "Shower toilet". Connect retries up to three times with one-second
+delays. No application PIN is supplied in the inspected pairing path.
+
+Outgoing frames are 7 bytes: opcode, two custom bytes, settings byte, three
+date/time bytes. Settings are included in every command. The first socket
+read triggers opcode 00. Incoming reads must be exactly 22 bytes to be parsed;
+there is no stream reassembly visible in that receiver.
+
+Most operation codes match BLE. Mild wash indexes 0..5 instead map to
+8E 9E AE BE CE EE. Do not merge the two mappings.
+Sources: bluetooth/ClassicBluetoothManager.java:32,434,479,493,529,707,733,768,841;
+activity/B001Activity.java:158,290; toilet/ToiletInfoManager.java:446.
+
+7. WHAT REMAINS UNRESOLVED
+
+Confirmed statically: app identity, active BLE route, GATT role/UUIDs,
+app-level handshake, command framing, operation encoders and status decoding.
+Partial: model-specific command semantics, schedule/counter behavior.
+Unresolved: physical pairing admission, actual firmware support, radio timing,
+notification subscription requirements, reconnect behavior and hardware results.
+
+No periodic BLE heartbeat was found in focused manager/NT-activity inspection;
+no measured packet cadence is available. This does not prove one is unnecessary.
+Receive temperature shift >>3 differs from outgoing <<2. Counter arithmetic
+includes suspicious signed-byte shifts. Keep these as observations, not a
+corrected specification, until compared with captured packets.
+The decompiled setUuid conditional contains a dubious nested ternary; its exact
+branch structure should be checked against bytecode before a literal port.
+The handshake accesses p[19] before checking length; a new implementation
+should validate packet length before decoding it.
+
+The next useful validation is a Bluetooth HCI capture of normal pairing,
+idle status, and one ordinary control action using the official app on the
+user's own toilet. Compare identities, phase flags, settings and timing before
+implementing a peripheral/server controller. Avoid blindly zeroing settings or
+replaying toggle, reset, descaling or drainage commands.
+
+No live toilet was connected, no command was transmitted, and no controller app
+was built. No persistent REA configuration was changed for this investigation.
