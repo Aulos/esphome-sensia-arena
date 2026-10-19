@@ -251,3 +251,18 @@ replaying toggle, reset, descaling or drainage commands.
 
 No live toilet was connected, no command was transmitted, and no controller app
 was built. No persistent REA configuration was changed for this investigation.
+
+2026-10-19 controls extension
+---------------------------
+BLEManager command builders and NT UI callers now drive guarded ESPHome controls.
+Capability gates derive from NTR001Activity.buttonVisibilityChange and model
+acceptance checks, NTS003Activity heater visibility, NTS004Activity.initialize,
+and NToiletInfoManager.isArene1_4 / _ChTw / _Eu. See README capability table.
+Unknown models, grades and regions cannot actuate. No Classic transport support
+is inferred from shared method names. Native timer payloads and methods with no
+confirmed NT UI path remain unimplemented.
+
+Live command evidence: model2/grade2/region2 on 39354SH0, ESPHome2026.10.0b4
+build2026-10-19 10:31:39. Opcode43 from HA toggled reported p10bit1 1->0;
+second opcode43 restored it 0->1. Status monitoring and authentication resumed
+after OTA. No spray/dryer/flush/maintenance actuation test was performed.

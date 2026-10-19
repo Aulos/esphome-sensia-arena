@@ -1,6 +1,10 @@
 # Keep credentials local. The package supplies the BLE protocol and controls.
 packages:
-  sensia_arena: github://Aulos/esphome-sensia-arena/packages/sensia-arena.yaml@main
+  sensia_arena:
+    url: https://github.com/Aulos/esphome-sensia-arena
+    ref: main
+    refresh: always
+    files: [packages/sensia-arena.yaml]
 
 substitutions:
   timezone: Europe/Warsaw

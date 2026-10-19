@@ -221,8 +221,8 @@ methods without a confirmed UI path are not exposed. Use Home Assistant
 schedules around supported switches. Bluetooth Classic models need a separate
 transport implementation; this package does not support them.
 
-For reproducible deployments, replace both `@main` references, in the package
-source and external component source, with a tested commit. Credentials remain
+For reproducible deployments, set the package `ref` and the external component `@main` revision to a tested
+commit. The example refreshes both sources on each build. Credentials remain
 in your local YAML/secrets file. Existing API, Wi-Fi and OTA credentials must be
 preserved when updating an installed device.
 
@@ -234,4 +234,17 @@ model and region combinations, and grade-dependent lid support. These tests do
 not establish physical actuation on untested variants.
 
 The expanded configuration compiled on ESPHome 2026.9.1 for ESP32-C3: RAM
-138280 bytes, application flash 1212420 bytes. Hardware command tests pending.
+138280 bytes, application flash 1212420 bytes. The package-based installation example also passed ESPHome configuration validation.
+
+Expanded firmware was installed through the Home Assistant dashboard on
+ESPHome 2026.10.0b4, build 2026-10-19 10:31:39 +0200. Bluetooth authenticated
+successfully and Home Assistant discovered the controls and diagnostics. The
+reported variant was model 2, grade 2, region 2, with motorized lid, descaling and
+ion/blue LED support enabled and seat-heating support disabled.
+
+A Home Assistant Blue LED off command sent opcode 43 and the toilet's next status
+changed its LED bit from 1 to 0. The restore command sent opcode 43 again and the
+next status changed back to 1. The original setting was restored. This verifies
+command delivery and status-confirmed setting control. Wash, dryer, flush,
+cleaning and descaling actions were not physically exercised. Other model,
+grade and region combinations have only static analysis and host-test coverage.
