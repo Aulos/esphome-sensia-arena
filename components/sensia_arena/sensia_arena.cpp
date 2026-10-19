@@ -32,6 +32,10 @@ void SensiaArena::setup() {
 }
 
 void SensiaArena::reset_() {
+  if (this->session_.have_status && this->occupancy_state_.has_value()) {
+    this->occupancy_waiting_ = true;
+    this->occupancy_lost_at_ = millis();
+  }
   this->connected_ = false;
   this->authenticated_ = false;
   this->command_waiting_ = false;
@@ -41,7 +45,11 @@ void SensiaArena::reset_() {
   this->publish_();
 }
 
-void SensiaArena::ble_before_disabled_event_handler() { this->reset_(); }
+void SensiaArena::ble_before_disabled_event_handler() {
+  this->occupancy_state_.reset();
+  this->occupancy_waiting_ = false;
+  this->reset_();
+}
 
 void SensiaArena::gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t interface,
                                       esp_ble_gatts_cb_param_t* param) {
@@ -92,6 +100,8 @@ void SensiaArena::receive_(std::span<const uint8_t> data, uint16_t connection) {
   if (kind == Packet::PAIRING) {
     this->protocol_status_ = "Pairing packet received";
   } else {
+    this->occupancy_state_ = this->session_.occupied;
+    this->occupancy_waiting_ = false;
     if (this->command_waiting_ && this->session_.observed(this->pending_action_) != this->pending_before_)
       this->command_waiting_ = false;
     this->protocol_status_ = this->session_.known_model() ? "Status received" : "Unknown variant; monitoring only";
@@ -114,6 +124,13 @@ bool SensiaArena::send_(Frame& frame) {
 }
 
 void SensiaArena::loop() {
+  // The toilet periodically reconnects. Allow a short display gap, not stale
+  // command authority; repeated reconnect attempts must not extend this window.
+  if (this->occupancy_waiting_ && millis() - this->occupancy_lost_at_ >= 15000) {
+    this->occupancy_waiting_ = false;
+    this->occupancy_state_.reset();
+    this->publish_();
+  }
   if (!this->replies_enabled_ || !this->session_.pending_reply || !this->session_.subscribed) return;
   const uint32_t now_ms = millis();
   if (now_ms - this->last_reply_attempt_ < 250) return;

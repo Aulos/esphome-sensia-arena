@@ -14,14 +14,19 @@ void SensiaBinarySensor::on_sensia_state() {
     this->publish_state(this->parent_->command_pending());
     return;
   }
+  if (this->kind_ == BinaryKind::OCCUPIED) {
+    auto occupied = this->parent_->occupancy_state();
+    if (occupied.has_value())
+      this->publish_state(*occupied);
+    else
+      this->invalidate_state();
+    return;
+  }
   if (!s.have_status) {
     this->invalidate_state();
     return;
   }
   switch (this->kind_) {
-    case BinaryKind::OCCUPIED:
-      this->publish_state(s.occupied);
-      break;
     case BinaryKind::MOTORIZED_LID_SUPPORTED:
       this->publish_state(s.supports(Action::OPEN_LID));
       break;

@@ -78,12 +78,51 @@ int main() {
   hub.set_preference(Preference::PRESSURE, 6);
   assert(hub.send_command(Action::REAR) && fake::last_frame[1] == 0x7E);
   assert(hub.send_command(Action::DRY) && fake::last_frame[1] == 0x6B);
+  // Brief reconnects keep the display stable, but never retain command authority.
+  assert(hub.occupancy_state() == true);
   event.disconnect.conn_id = 1;
+  const auto lost_at = fake::now_ms;
   hub.gatts_event_handler(ESP_GATTS_DISCONNECT_EVT, 7, &event);
   assert(!hub.connected() && !hub.session().have_status && !hub.session().subscribed);
+  assert(hub.occupancy_state() == true);
+  assert(!hub.send_command(Action::REAR));
   assert(!hub.send_command(Action::STOP));
+  fake::now_ms = lost_at + 5000;
   hub.gatts_event_handler(ESP_GATTS_CONNECT_EVT, 7, &event);
-  assert(!hub.session().have_identity && !hub.command_pending());
+  hub.gap_event_handler(ESP_GAP_BLE_AUTH_CMPL_EVT, &security);
+  event.write = {1, 42, 2, false, cccd};
+  hub.gatts_event_handler(ESP_GATTS_WRITE_EVT, 7, &event);
+  server.service.rx.write(pairing, 1);
+  assert(hub.occupancy_state() == true && !hub.session().have_status);
+  assert(!hub.send_command(Action::REAR));  // Cached occupancy cannot authorize a wash.
+  server.service.rx.write(status, 1);
+  assert(hub.occupancy_state() == false);  // Fresh status wins immediately.
+  fake::now_ms = lost_at + 16000;
+  hub.loop();
+  assert(hub.occupancy_state() == false);  // Old expiry cannot invalidate new status.
+
+  event.disconnect.conn_id = 1;
+  const auto second_loss = fake::now_ms;
+  hub.gatts_event_handler(ESP_GATTS_DISCONNECT_EVT, 7, &event);
+  fake::now_ms = second_loss + 14000;
+  hub.gatts_event_handler(ESP_GATTS_CONNECT_EVT, 7, &event);
+  hub.loop();
+  assert(hub.occupancy_state() == false);
+  fake::now_ms = second_loss + 15000;
+  hub.loop();
+  assert(!hub.occupancy_state().has_value());  // Reconnect alone cannot extend grace.
+
+  hub.gap_event_handler(ESP_GAP_BLE_AUTH_CMPL_EVT, &security);
+  server.service.rx.write(changed, 1);
+  assert(hub.occupancy_state() == true);
+  fake::now_ms = UINT32_MAX - 5000;
+  hub.gatts_event_handler(ESP_GATTS_DISCONNECT_EVT, 7, &event);
+  fake::now_ms += 14999;
+  hub.loop();
+  assert(hub.occupancy_state() == true);
+  ++fake::now_ms;
+  hub.loop();
+  assert(!hub.occupancy_state().has_value());  // Timer wrap is safe.
   hub.ble_before_disabled_event_handler();
   assert(!hub.connected());
   std::cout << "Native hub lifecycle checks passed\n";

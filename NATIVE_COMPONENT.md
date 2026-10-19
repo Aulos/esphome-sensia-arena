@@ -107,7 +107,12 @@ acknowledgement can therefore still block further settings until reconnection.
 Stop remains available during this wait. There is deliberately no timeout that
 blindly permits another toggle against stale state.
 
-Binary states are invalidated on disconnect and numeric diagnostics publish NaN.
+Seat occupancy retains its last reported value for up to 15 seconds after a
+disconnect, allowing the observed brief reconnections without an unknown flash.
+Fresh status replaces it immediately; repeated reconnects without status do not
+extend the deadline. Startup and explicitly disabling BLE invalidate occupancy
+immediately. This display cache is never used by command interlocks. Other binary
+states are invalidated on disconnect and numeric diagnostics publish NaN.
 Switch/select internal state is marked unknown, but ESPHome's live API may retain
 the last displayed value until the next update; use the connection diagnostic.
 No arbitrary quiet-period timeout is imposed on an otherwise connected toilet.
@@ -188,13 +193,15 @@ The ESP32 API log stream stayed connected throughout. BLE reconnected at
 returned at 14:49:14.564. This was not an ESP32 reboot.
 
 The hub has no five-minute occupancy expiry. Disconnect resets the session,
-and binary sensors invalidate their state until a fresh authenticated status
-arrives. Retaining occupancy across the gap would show a stale observation;
-command interlocks must continue to require fresh session status regardless of
-any future display smoothing. The reason the toilet ends its session periodically
+and the original native build invalidated all binary sensors until fresh
+authenticated status arrived. The occupancy display now has the bounded 15-second
+grace described above; connection diagnostics and command interlocks still reset
+immediately. The reason the toilet ends its session periodically
 is not established by this capture; a toilet idle policy or a missing protocol
-keepalive needs further investigation. No keepalive or display grace period has
-been added on the basis of this evidence.
+keepalive needs further investigation. No speculative keepalive has been added. The display grace is covered by host
+tests for reconnect recovery, expiry, repeated reconnects, timer wrap and the
+requirement for fresh status before wash commands. Live validation of the display
+fix is pending.
 
 
 ## Upstream preparation still required

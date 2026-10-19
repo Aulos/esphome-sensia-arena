@@ -39,6 +39,7 @@ class SensiaArena final : public Component {
   void set_pairing_replies(bool enabled) { this->replies_enabled_ = enabled; }
   void set_maintenance(bool enabled) { this->maintenance_enabled_ = enabled; }
   const Session& session() const { return this->session_; }
+  std::optional<bool> occupancy_state() const { return this->occupancy_state_; }
   bool connected() const { return this->connected_; }
   bool command_pending() const { return this->command_waiting_; }
   const char* protocol_status() const { return this->protocol_status_; }
@@ -59,6 +60,10 @@ class SensiaArena final : public Component {
   bool command_waiting_{false};
   Action pending_action_{Action::STOP};
   int pending_before_{-1};
+  // Display-only cache. Command guards always use the current Session.
+  std::optional<bool> occupancy_state_;
+  bool occupancy_waiting_{false};
+  uint32_t occupancy_lost_at_{0};
   uint32_t last_reply_attempt_{0};
   uint16_t connection_{0};
   uint16_t tx_handle_{0xFFFF};
