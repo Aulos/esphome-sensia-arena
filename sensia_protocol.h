@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <vector>
 
-// Derived from APK 1.4.1 BLEManager and NToiletInfoManager; not hardware validated.
+// Derived from APK 1.4.1 BLEManager and NToiletInfoManager; pairing/status verified on 39354SH0 (2026-10-19).
 namespace sensia {
 enum class Packet { INVALID, PAIRING, STATUS };
 

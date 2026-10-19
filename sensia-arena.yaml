@@ -1,5 +1,5 @@
 substitutions:
-  # Used only until the first status. See README.txt before enabling replies.
+  # Used only until the first status. See README.md before enabling replies.
   initial_settings: "0x06"
   timezone: "Europe/Warsaw"
 
@@ -7,16 +7,32 @@ esphome:
   name: sensia-arena
   friendly_name: Sensia Arena
   min_version: 2026.9.1
+  platformio_options:
+    build_flags:
+      - -DESPHOME_ESP32_BLE_GAP_EVENT_HANDLER_COUNT=1
   includes:
     - sensia_protocol.h
   on_boot:
+    priority: -100
+    then:
     - lambda: |-
         sensia::session.settings = ${initial_settings};
         id(ble_connected).publish_state(false);
         id(protocol_status).publish_state("Waiting for toilet");
+        esp32_ble::global_ble->add_gap_event_callback([](esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param) {
+          if (event == ESP_GAP_BLE_SEC_REQ_EVT) {
+            const bool accept = id(pairing_replies).state;
+            auto result = esp_ble_gap_security_rsp(param->ble_security.ble_req.bd_addr, accept);
+            ESP_LOGW("sensia", "BLE security request: accept=%d result=%d", accept, result);
+          } else if (event == ESP_GAP_BLE_AUTH_CMPL_EVT) {
+            ESP_LOGW("sensia", "BLE authentication: success=%d reason=0x%02x", param->ble_security.auth_cmpl.success, param->ble_security.auth_cmpl.fail_reason);
+          }
+        });
 
 esp32:
-  board: seeed_xiao_esp32c3
+  # Waveshare ESP32-C3-Zero
+  variant: esp32c3
+  flash_size: 4MB
   framework:
     type: esp-idf
 
@@ -36,7 +52,7 @@ ota:
     password: !secret ota_password
 
 time:
-  - platform: sntp
+  - platform: homeassistant
     id: local_time
     timezone: ${timezone}
 
@@ -48,6 +64,7 @@ globals:
 
 esp32_ble:
   name: LIXIL
+  auth_req_mode: bond
   max_connections: 1
 
 esp32_ble_server:
@@ -79,9 +96,6 @@ esp32_ble_server:
               read: true
               write: true
               value: [0, 0]
-              on_write:
-                - lambda: |-
-                    sensia::session.subscribed = x.size() == 2 && (x[0] & 1);
         - uuid: 6e400002-b5a3-f393-e0a9-e50e24dcca9e
           write: true
           write_no_response: true
@@ -108,7 +122,7 @@ switch:
     name: Enable pairing replies
     entity_category: config
     optimistic: true
-    restore_mode: ALWAYS_OFF
+    restore_mode: RESTORE_DEFAULT_OFF
 
 binary_sensor:
   - platform: template
@@ -142,7 +156,7 @@ interval:
           condition:
             lambda: |-
               return id(pairing_replies).state && sensia::session.pending_reply &&
-                     sensia::session.subscribed && id(local_time).now().is_valid();
+                     id(local_time).now().is_valid();
           then:
             - ble_server.characteristic.set_value:
                 id: toilet_tx
@@ -155,12 +169,3 @@ interval:
                 sensia::session.pending_reply = false;
                 ESP_LOGI("sensia", "Sent opcode 00, phase %u, settings 0x%02X",
                          sensia::session.phase, sensia::session.settings | 1);
-  - interval: 5s
-    then:
-      - lambda: |-
-          // shortcut: freshness threshold is provisional until hardware cadence is measured.
-          if (sensia::session.have_status && millis() - id(last_status_ms) > 60000) {
-            id(occupied).invalidate_state();
-            id(model_code).publish_state(NAN);
-            id(protocol_status).publish_state("Status stale");
-          }

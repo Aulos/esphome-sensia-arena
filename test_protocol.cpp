@@ -43,5 +43,11 @@ int main() {
   p[19] = 0x10;
   s.receive(p.data(), p.size());
   assert(!s.pending_reply);
+  // Captured 39354SH0 status, 2026-10-19. Contains no pairing identity.
+  const std::array<uint8_t, 20> captured = {
+    0,0,0,0,0,1,0,0,0x51,0x91,0x0E,0x12,0,0x29,0,0xC1,0,0x12,0x90,0xFE};
+  assert(s.receive(captured.data(), captured.size()) == sensia::Packet::STATUS);
+  assert(s.have_status && !s.occupied && s.model == 2 && s.grade == 2);
+  assert(s.settings == 0x06);
   std::cout << "Protocol checks passed\n";
 }
