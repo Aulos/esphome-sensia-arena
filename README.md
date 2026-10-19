@@ -273,3 +273,8 @@ USB trace recorded opcode 7E. The owner also confirmed this installation has no
 electronic flush actuator, explaining why physical flushing is unavailable.
 The automatic-flushing setting test above verified the stored setting only,
 not a physical flush. Physical flush validation requires an equipped installation.
+
+The owner also confirmed Dryer starts warm airflow while seated and Stop ends
+it. The USB capture contains dryer opcode 7B followed by Stop opcode F2.
+Gentle/front wash and cleaning/descaling still lack physical confirmation;
+commands appearing in a log alone are not treated as physical validation.
