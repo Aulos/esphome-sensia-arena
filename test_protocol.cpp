@@ -107,6 +107,7 @@ int main() {
     assert(s.supports(A::OPEN_LID) == (grade == 2 || grade == 3));
   }
   s.grade = 2;
+  assert(command(A::SEAT_TEMP, 1).empty()); // Already reported: do not wait for a change.
   s.settings = 0xE6;
   auto heater = command(A::SEAT_TEMP, 5);
   assert(heater[4] == 0xFF && heater[3] == 0x80);

@@ -160,6 +160,7 @@ struct Session {
       case Action::SEAT_TEMP: {
         if (value < 0 || value > 5) return {};
         constexpr uint8_t codes[] = {0,1,3,5,6,7};
+        if (codes[value] == observed(a)) return {};
         p[4] = (p[4] & ~0x1C) | (codes[value] << 2); break;
       }
       case Action::DRY:

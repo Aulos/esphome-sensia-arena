@@ -248,3 +248,11 @@ next status changed back to 1. The original setting was restored. This verifies
 command delivery and status-confirmed setting control. Wash, dryer, flush,
 cleaning and descaling actions were not physically exercised. Other model,
 grade and region combinations have only static analysis and host-test coverage.
+
+Further live checks on 2026-10-19 confirmed operation sound off → on → off,
+flush delay 2 → 6 → 10 → 15 → 2 seconds, and automatic flushing on → off → on.
+Each transition was confirmed in received status and the original settings were
+restored. An unsupported freeze-protection request was rejected without sending
+its opcode. A dryer request while unoccupied was also rejected. The owner
+confirmed that Open lid and Open seat physically worked. No wash, flush,
+cleaning or descaling actuation has yet been verified.
