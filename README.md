@@ -172,6 +172,17 @@ connected to physical hardware during development.
 | Seat heat, heater auto-off, power saving | No | No | Yes | Yes | No |
 | Freeze protection | No | No | Yes | No | No |
 
+**Physical flushing also requires an installed electronic flush actuator.**
+The model/region fields and automatic-flushing setting do not establish that
+this optional hardware is present. GROHE specifies connection kit 46944000 for
+app/remote/automatic flushing on compatible cisterns. An installation with only
+a mechanical wall flush cannot gain electronic flushing through ESPHome alone.
+See the [GROHE FAQ](https://contenthub-preprod.grohe.com/en/products/spalet/spalet-faq.html)
+and [39354SH0 installation manual](https://cdn.cloud.grohe.com/Literature/Brochures/EN/39354sho_installation/original/39354sho_installation.pdf).
+Hide Full flush, Small flush, Automatic flushing and Cycle flush delay in Home
+Assistant when that hardware is absent. Their protocol support is separate from
+physical installation capability.
+
 Model 2 is named Arena wall and model 3 Arena floor in the APK. Grade codes
 1/2/3 correspond to its GRADE_5/GRADE_6/GRADE_8 constants. Regions 3 and 4 are
 named China/Taiwan and EU in the app. These codes do not identify a retail SKU.
@@ -254,5 +265,11 @@ flush delay 2 → 6 → 10 → 15 → 2 seconds, and automatic flushing on → o
 Each transition was confirmed in received status and the original settings were
 restored. An unsupported freeze-protection request was rejected without sending
 its opcode. A dryer request while unoccupied was also rejected. The owner
-confirmed that Open lid and Open seat physically worked. No wash, flush,
-cleaning or descaling actuation has yet been verified.
+confirmed that Open lid and Open seat physically worked. At that point, wash, physical flush, cleaning and descaling actuation were
+still unverified. Subsequent checks are recorded below.
+
+The owner subsequently confirmed rear wash physically works while seated; the
+USB trace recorded opcode 7E. The owner also confirmed this installation has no
+electronic flush actuator, explaining why physical flushing is unavailable.
+The automatic-flushing setting test above verified the stored setting only,
+not a physical flush. Physical flush validation requires an equipped installation.
