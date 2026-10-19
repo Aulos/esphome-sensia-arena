@@ -3,6 +3,11 @@
 Experimental ESPHome controls for GROHE Sensia Arena BLE toilets.
 Test hardware: 39354SH0 and Waveshare ESP32-C3-Zero.
 
+The current checkout contains a native-component refactor. See
+[NATIVE_COMPONENT.md](NATIVE_COMPONENT.md) for configuration, migration and
+validation. It has not yet been hardware-tested; the physical results below
+refer to the preceding YAML implementation.
+
 This implements the BLE peripheral role recovered from Android app 1.4.1.
 The toilet connects to the ESP32, which advertises as LIXIL. No phone app is
 needed. The board requires USB power and Wi-Fi; no wiring to the toilet.
@@ -17,7 +22,7 @@ No automatic product/model assumption is made from the reported model code.
 ## Files
 - `sensia-arena.yaml`: ESPHome configuration, tested with ESPHome 2026.9.1.
 - `packages/sensia-arena.yaml`: Shared controls and BLE configuration.
-- `components/sensia_arena/protocol.h`: Status parser, capability checks and command encoder.
+- `components/sensia_arena/`: Native hub, entity platforms and protocol encoder.
 - `sensia_protocol.h`: Include for standalone host tests.
 - `secrets.example.yaml`: Placeholder credentials; copy locally to `secrets.yaml`.
 - `test_protocol.cpp`: Host checks with synthetic packets and a captured status frame.
@@ -54,10 +59,9 @@ packet. ESPHome manages notification subscriptions internally. Do not add a YAML
 on_write callback to the 2902 descriptor: in the tested ESPHome version it replaces
 the internal subscription callback and silently prevents notifications.
 
-The GAP security callback is registered at boot priority -100, after BLE setup.
-The reserved callback slot assumes this configuration is the only GAP-event
-consumer; combining it with other BLE components needs a proper external component
-that allocates callback slots through ESPHome code generation.
+The native hub registers GAP and GATTS callbacks through ESPHome code generation.
+It owns the protocol service and waits for authentication and notification
+subscription before replying. Do not retain the old manual GAP-slot build flag.
 
 Expected progression:
 
@@ -281,3 +285,7 @@ commands appearing in a log alone are not treated as physical validation.
 
 The owner subsequently confirmed gentle wash physically works. The earlier USB
 capture contains its opcode EE; physical confirmation comes from the owner.
+
+The owner subsequently confirmed front wash and all four nozzle-cleaning
+controls physically work. Descaling remains unverified. These confirmations
+apply to the YAML-based firmware, before the native refactor.

@@ -1,0 +1,261 @@
+esphome:
+  name: sensia-native-test
+esp32:
+  variant: esp32c3
+  framework:
+    type: esp-idf
+logger: {}
+time:
+- platform: sntp
+  id: local_time
+  timezone: UTC
+external_components:
+- source:
+    type: local
+    path: ../components
+  components:
+  - sensia_arena
+esp32_ble:
+  name: LIXIL
+  auth_req_mode: bond
+  max_connections: 1
+esp32_ble_server:
+  max_clients: 1
+sensia_arena:
+  id: sensia_hub
+  time_id: local_time
+  initial_settings: 6
+switch:
+- platform: sensia_arena
+  id: pairing_replies
+  name: Enable pairing replies
+  entity_category: config
+  type: PAIRING_REPLIES
+- platform: sensia_arena
+  id: maintenance
+  name: Enable maintenance commands
+  entity_category: config
+  type: MAINTENANCE
+- platform: sensia_arena
+  id: auto_lid
+  name: Automatic lid
+  entity_category: config
+  type: AUTO_LID
+- platform: sensia_arena
+  id: deodorizer
+  name: Automatic deodorizer
+  entity_category: config
+  type: DEODORIZER
+- platform: sensia_arena
+  id: blue_led
+  name: Blue LED
+  entity_category: config
+  type: BLUE_LED
+- platform: sensia_arena
+  id: operation_sound
+  name: Operation sound
+  entity_category: config
+  type: SOUND
+- platform: sensia_arena
+  id: prewash
+  name: Pre-wash
+  entity_category: config
+  type: PREWASH
+- platform: sensia_arena
+  id: auto_flush
+  name: Automatic flushing
+  entity_category: config
+  type: AUTO_FLUSH
+- platform: sensia_arena
+  id: power_saving
+  name: Power saving
+  entity_category: config
+  type: POWER_SAVE
+- platform: sensia_arena
+  id: heater_auto_off
+  name: Seat heater automatic off
+  entity_category: config
+  type: HEATER_OFF
+- platform: sensia_arena
+  id: freeze
+  name: Freeze protection
+  entity_category: config
+  type: FREEZE
+binary_sensor:
+- platform: sensia_arena
+  id: ble_connected
+  name: Toilet BLE connection
+  device_class: connectivity
+  type: CONNECTION
+- platform: sensia_arena
+  id: occupied
+  name: Seat occupied
+  device_class: occupancy
+  type: OCCUPIED
+- platform: sensia_arena
+  name: Descaling recommended
+  entity_category: diagnostic
+  type: DESCALING_RECOMMENDED
+- platform: sensia_arena
+  name: Descaling active
+  entity_category: diagnostic
+  type: DESCALING_ACTIVE
+- platform: sensia_arena
+  name: Descaling drainage error
+  entity_category: diagnostic
+  type: DESCALING_ERROR
+- platform: sensia_arena
+  name: Setting change pending
+  entity_category: diagnostic
+  type: PENDING
+- platform: sensia_arena
+  name: Motorized lid supported
+  entity_category: diagnostic
+  type: MOTORIZED_LID_SUPPORTED
+- platform: sensia_arena
+  name: Seat heating supported
+  entity_category: diagnostic
+  type: SEAT_HEATING_SUPPORTED
+- platform: sensia_arena
+  name: Descaling supported
+  entity_category: diagnostic
+  type: DESCALING_SUPPORTED
+- platform: sensia_arena
+  name: Ion and blue LED supported
+  entity_category: diagnostic
+  type: ION_SUPPORTED
+sensor:
+- platform: sensia_arena
+  id: model_code
+  name: Reported model code
+  entity_category: diagnostic
+  accuracy_decimals: 0
+  type: MODEL
+- platform: sensia_arena
+  name: Reported grade code
+  entity_category: diagnostic
+  accuracy_decimals: 0
+  type: GRADE
+- platform: sensia_arena
+  name: Reported region code
+  entity_category: diagnostic
+  accuracy_decimals: 0
+  type: REGION
+- platform: sensia_arena
+  name: Flush delay
+  entity_category: diagnostic
+  accuracy_decimals: 0
+  type: FLUSH_DELAY
+- platform: sensia_arena
+  name: Reported ion mode
+  entity_category: diagnostic
+  accuracy_decimals: 0
+  type: ION_MODE
+- platform: sensia_arena
+  name: Reported seat temperature code
+  entity_category: diagnostic
+  accuracy_decimals: 0
+  type: SEAT_TEMPERATURE_CODE
+- platform: sensia_arena
+  name: Abnormal status code
+  entity_category: diagnostic
+  accuracy_decimals: 0
+  type: ABNORMAL_STATUS
+text_sensor:
+- platform: sensia_arena
+  id: protocol_status
+  name: Protocol status
+  entity_category: diagnostic
+number:
+- platform: sensia_arena
+  id: wash_pressure
+  name: Wash pressure
+  type: PRESSURE
+- platform: sensia_arena
+  id: water_level
+  name: Water temperature level
+  type: WATER
+- platform: sensia_arena
+  id: wash_width
+  name: Wash width
+  type: WIDTH
+- platform: sensia_arena
+  id: nozzle_position
+  name: Nozzle position
+  type: POSITION
+- platform: sensia_arena
+  id: massage_mode
+  name: Massage mode
+  type: MASSAGE
+- platform: sensia_arena
+  id: dryer_level
+  name: Dryer temperature level
+  type: DRYER
+button:
+- platform: sensia_arena
+  name: Stop
+  type: STOP
+- platform: sensia_arena
+  name: Open lid
+  type: OPEN_LID
+- platform: sensia_arena
+  name: Open seat
+  type: OPEN_SEAT
+- platform: sensia_arena
+  name: Close lid and seat
+  type: CLOSE
+- platform: sensia_arena
+  name: Full flush
+  type: FLUSH_FULL
+- platform: sensia_arena
+  name: Small flush
+  type: FLUSH_SMALL
+- platform: sensia_arena
+  name: Rear wash
+  type: REAR
+- platform: sensia_arena
+  name: Gentle wash
+  type: GENTLE
+- platform: sensia_arena
+  name: Front wash
+  type: FRONT
+- platform: sensia_arena
+  name: Dryer
+  type: DRY
+- platform: sensia_arena
+  name: Clean nozzle
+  type: CLEAN_NOZZLE
+- platform: sensia_arena
+  name: Clean rear nozzle
+  type: CLEAN_REAR
+- platform: sensia_arena
+  name: Clean front nozzle
+  type: CLEAN_FRONT
+- platform: sensia_arena
+  name: Clean nozzle guard
+  type: CLEAN_GUARD
+- platform: sensia_arena
+  name: Cycle ion mode
+  type: ION_CYCLE
+- platform: sensia_arena
+  name: Cycle flush delay
+  type: DELAY_CYCLE
+- platform: sensia_arena
+  name: Start descaling
+  disabled_by_default: true
+  entity_category: config
+  type: DESCALE
+- platform: sensia_arena
+  name: Retry descaling drainage
+  disabled_by_default: true
+  entity_category: config
+  type: RETRY_DRAIN
+select:
+- platform: sensia_arena
+  name: Seat temperature
+  id: seat_temperature
+  entity_category: config
+
+wifi:
+  ssid: sensia-test-network
+  password: test-only-password

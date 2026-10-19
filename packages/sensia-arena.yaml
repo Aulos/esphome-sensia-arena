@@ -1,682 +1,265 @@
+# Native Sensia Arena component. Keep entity names unchanged during migration.
 external_components:
-  - source: github://Aulos/esphome-sensia-arena@main
-    components: [sensia_arena]
-    refresh: 0s
-
-sensia_arena:
-
+- source: github://Aulos/esphome-sensia-arena@${sensia_component_ref}
+  components:
+  - sensia_arena
+  refresh: 0s
 substitutions:
-  # Used only until the first status. See README.md before enabling replies.
-  initial_settings: "0x06"
-  timezone: "Europe/Warsaw"
-
+  sensia_component_ref: native-refactor
+  initial_settings: '0x06'
+  timezone: Europe/Warsaw
 esphome:
   name: sensia-arena
   friendly_name: Sensia Arena
   min_version: 2026.9.1
-  platformio_options:
-    build_flags:
-      - -DESPHOME_ESP32_BLE_GAP_EVENT_HANDLER_COUNT=1
-  on_boot:
-    priority: -100
-    then:
-    - lambda: |-
-        sensia::session.settings = ${initial_settings};
-        id(ble_connected).publish_state(false);
-        id(protocol_status).publish_state("Waiting for toilet");
-        esp32_ble::global_ble->add_gap_event_callback([](esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param) {
-          if (event == ESP_GAP_BLE_SEC_REQ_EVT) {
-            const bool accept = id(pairing_replies).state;
-            auto result = esp_ble_gap_security_rsp(param->ble_security.ble_req.bd_addr, accept);
-            ESP_LOGW("sensia", "BLE security request: accept=%d result=%d", accept, result);
-          } else if (event == ESP_GAP_BLE_AUTH_CMPL_EVT) {
-            ESP_LOGW("sensia", "BLE authentication: success=%d reason=0x%02x", param->ble_security.auth_cmpl.success, param->ble_security.auth_cmpl.fail_reason);
-          }
-        });
-
 esp32:
-  # Waveshare ESP32-C3-Zero
   variant: esp32c3
   flash_size: 4MB
   framework:
     type: esp-idf
-
 logger:
   level: DEBUG
-
 time:
-  - platform: homeassistant
-    id: local_time
-    timezone: ${timezone}
-
-globals:
-  - id: command_waiting
-    type: bool
-    initial_value: 'false'
-  - id: command_action
-    type: int
-    initial_value: '0'
-  - id: command_status_before
-    type: int
-    initial_value: '-1' 
-  - id: last_status_ms
-    type: uint32_t
-    restore_value: false
-    initial_value: '0'
-
+- platform: homeassistant
+  id: local_time
+  timezone: ${timezone}
 esp32_ble:
   name: LIXIL
   auth_req_mode: bond
   max_connections: 1
-
 esp32_ble_server:
   max_clients: 1
-  on_connect:
-    - lambda: |-
-        id(command_waiting) = false;
-        sensia::session = sensia::Session{};
-        sensia::session.settings = ${initial_settings};
-        id(ble_connected).publish_state(true);
-        id(protocol_status).publish_state("BLE connected; awaiting packets");
-  on_disconnect:
-    - lambda: |-
-        id(command_waiting) = false;
-        sensia::session = sensia::Session{};
-        sensia::session.settings = ${initial_settings};
-        id(ble_connected).publish_state(false);
-        id(occupied).invalidate_state();
-        id(model_code).publish_state(NAN);
-        id(protocol_status).publish_state("Disconnected");
-  services:
-    - uuid: 6e400001-b5a3-f393-e0a9-e50e24dcca9e
-      advertise: true
-      characteristics:
-        - id: toilet_tx
-          uuid: 6e400003-b5a3-f393-e0a9-e50e24dcca9e
-          write: true
-          notify: true
-          descriptors:
-            - uuid: "2902"
-              read: true
-              write: true
-              value: [0, 0]
-        - uuid: 6e400002-b5a3-f393-e0a9-e50e24dcca9e
-          write: true
-          write_no_response: true
-          on_write:
-            - lambda: |-
-                ESP_LOGD("sensia", "RX %s", format_hex_pretty(x.data(), x.size()).c_str());
-                auto kind = sensia::session.receive(x.data(), x.size());
-                if (kind == sensia::Packet::INVALID) {
-                  ESP_LOGW("sensia", "Ignored packet of %u bytes", unsigned(x.size()));
-                  return;
-                }
-                if (kind == sensia::Packet::PAIRING) {
-                  id(protocol_status).publish_state("Pairing packet received");
-                } else {
-                  id(last_status_ms) = millis();
-                  if (sensia::session.observed(static_cast<sensia::Action>(id(command_action))) != id(command_status_before)) id(command_waiting) = false;
-                  id(occupied).publish_state(sensia::session.occupied);
-                  id(model_code).publish_state(sensia::session.model);
-                  id(protocol_status).publish_state(sensia::session.known_model() ? "Status received" : "Unknown variant; monitoring only");
-                }
-
+sensia_arena:
+  id: sensia_hub
+  time_id: local_time
+  initial_settings: ${initial_settings}
 switch:
-  - platform: template
-    id: pairing_replies
-    name: Enable pairing replies
-    entity_category: config
-    optimistic: true
-    restore_mode: RESTORE_DEFAULT_OFF
-
-  - platform: template
-    id: maintenance
-    name: Enable maintenance commands
-    entity_category: config
-    optimistic: true
-    restore_mode: ALWAYS_OFF
-  - platform: template
-    id: auto_lid
-    name: Automatic lid
-    entity_category: config
-    lambda: |-
-      if (!sensia::session.supports(sensia::Action::AUTO_LID)) return {};
-      return bool(sensia::session.setting(sensia::Action::AUTO_LID));
-    turn_on_action:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::AUTO_LID);
-          value: 1
-    turn_off_action:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::AUTO_LID);
-          value: 0
-  - platform: template
-    id: deodorizer
-    name: Automatic deodorizer
-    entity_category: config
-    lambda: |-
-      if (!sensia::session.supports(sensia::Action::DEODORIZER)) return {};
-      return bool(sensia::session.setting(sensia::Action::DEODORIZER));
-    turn_on_action:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::DEODORIZER);
-          value: 1
-    turn_off_action:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::DEODORIZER);
-          value: 0
-  - platform: template
-    id: blue_led
-    name: Blue LED
-    entity_category: config
-    lambda: |-
-      if (!sensia::session.supports(sensia::Action::BLUE_LED)) return {};
-      return bool(sensia::session.setting(sensia::Action::BLUE_LED));
-    turn_on_action:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::BLUE_LED);
-          value: 1
-    turn_off_action:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::BLUE_LED);
-          value: 0
-  - platform: template
-    id: operation_sound
-    name: Operation sound
-    entity_category: config
-    lambda: |-
-      if (!sensia::session.supports(sensia::Action::SOUND)) return {};
-      return bool(sensia::session.setting(sensia::Action::SOUND));
-    turn_on_action:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::SOUND);
-          value: 1
-    turn_off_action:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::SOUND);
-          value: 0
-  - platform: template
-    id: prewash
-    name: Pre-wash
-    entity_category: config
-    lambda: |-
-      if (!sensia::session.supports(sensia::Action::PREWASH)) return {};
-      return bool(sensia::session.setting(sensia::Action::PREWASH));
-    turn_on_action:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::PREWASH);
-          value: 1
-    turn_off_action:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::PREWASH);
-          value: 0
-  - platform: template
-    id: auto_flush
-    name: Automatic flushing
-    entity_category: config
-    lambda: |-
-      if (!sensia::session.supports(sensia::Action::AUTO_FLUSH)) return {};
-      return bool(sensia::session.setting(sensia::Action::AUTO_FLUSH));
-    turn_on_action:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::AUTO_FLUSH);
-          value: 1
-    turn_off_action:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::AUTO_FLUSH);
-          value: 0
-  - platform: template
-    id: power_saving
-    name: Power saving
-    entity_category: config
-    lambda: |-
-      if (!sensia::session.supports(sensia::Action::POWER_SAVE)) return {};
-      return bool(sensia::session.setting(sensia::Action::POWER_SAVE));
-    turn_on_action:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::POWER_SAVE);
-          value: 1
-    turn_off_action:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::POWER_SAVE);
-          value: 0
-  - platform: template
-    id: heater_auto_off
-    name: Seat heater automatic off
-    entity_category: config
-    lambda: |-
-      if (!sensia::session.supports(sensia::Action::HEATER_OFF)) return {};
-      return bool(sensia::session.setting(sensia::Action::HEATER_OFF));
-    turn_on_action:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::HEATER_OFF);
-          value: 1
-    turn_off_action:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::HEATER_OFF);
-          value: 0
-  - platform: template
-    id: freeze
-    name: Freeze protection
-    entity_category: config
-    lambda: |-
-      if (!sensia::session.supports(sensia::Action::FREEZE)) return {};
-      return bool(sensia::session.setting(sensia::Action::FREEZE));
-    turn_on_action:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::FREEZE);
-          value: 1
-    turn_off_action:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::FREEZE);
-          value: 0
-
+- platform: sensia_arena
+  id: pairing_replies
+  name: Enable pairing replies
+  entity_category: config
+  type: PAIRING_REPLIES
+- platform: sensia_arena
+  id: maintenance
+  name: Enable maintenance commands
+  entity_category: config
+  type: MAINTENANCE
+- platform: sensia_arena
+  id: auto_lid
+  name: Automatic lid
+  entity_category: config
+  type: AUTO_LID
+- platform: sensia_arena
+  id: deodorizer
+  name: Automatic deodorizer
+  entity_category: config
+  type: DEODORIZER
+- platform: sensia_arena
+  id: blue_led
+  name: Blue LED
+  entity_category: config
+  type: BLUE_LED
+- platform: sensia_arena
+  id: operation_sound
+  name: Operation sound
+  entity_category: config
+  type: SOUND
+- platform: sensia_arena
+  id: prewash
+  name: Pre-wash
+  entity_category: config
+  type: PREWASH
+- platform: sensia_arena
+  id: auto_flush
+  name: Automatic flushing
+  entity_category: config
+  type: AUTO_FLUSH
+- platform: sensia_arena
+  id: power_saving
+  name: Power saving
+  entity_category: config
+  type: POWER_SAVE
+- platform: sensia_arena
+  id: heater_auto_off
+  name: Seat heater automatic off
+  entity_category: config
+  type: HEATER_OFF
+- platform: sensia_arena
+  id: freeze
+  name: Freeze protection
+  entity_category: config
+  type: FREEZE
 binary_sensor:
-  - platform: template
-    id: ble_connected
-    name: Toilet BLE connection
-    device_class: connectivity
-  - platform: template
-    id: occupied
-    name: Seat occupied
-    device_class: occupancy
-
-  - platform: template
-    name: Descaling recommended
-    entity_category: diagnostic
-    lambda: |-
-      if (!sensia::session.supports(sensia::Action::DESCALE)) return {};
-      return bool(sensia::session.status[5] & 1);
-  - platform: template
-    name: Descaling active
-    entity_category: diagnostic
-    lambda: |-
-      if (!sensia::session.supports(sensia::Action::DESCALE)) return {};
-      return bool(sensia::session.status[5] & 2);
-  - platform: template
-    name: Descaling drainage error
-    entity_category: diagnostic
-    lambda: |-
-      if (!sensia::session.supports(sensia::Action::DESCALE)) return {};
-      return bool(sensia::session.status[5] & 4);
-
-  - platform: template
-    name: Setting change pending
-    entity_category: diagnostic
-    lambda: return id(command_waiting);
-  - platform: template
-    name: Motorized lid supported
-    entity_category: diagnostic
-    lambda: |-
-      if (!sensia::session.have_status) return {};
-      return sensia::session.supports(sensia::Action::OPEN_LID);
-  - platform: template
-    name: Seat heating supported
-    entity_category: diagnostic
-    lambda: |-
-      if (!sensia::session.have_status) return {};
-      return sensia::session.supports(sensia::Action::SEAT_TEMP);
-  - platform: template
-    name: Descaling supported
-    entity_category: diagnostic
-    lambda: |-
-      if (!sensia::session.have_status) return {};
-      return sensia::session.supports(sensia::Action::DESCALE);
-  - platform: template
-    name: Ion and blue LED supported
-    entity_category: diagnostic
-    lambda: |-
-      if (!sensia::session.have_status) return {};
-      return sensia::session.supports(sensia::Action::ION_CYCLE);
-
+- platform: sensia_arena
+  id: ble_connected
+  name: Toilet BLE connection
+  device_class: connectivity
+  type: CONNECTION
+- platform: sensia_arena
+  id: occupied
+  name: Seat occupied
+  device_class: occupancy
+  type: OCCUPIED
+- platform: sensia_arena
+  name: Descaling recommended
+  entity_category: diagnostic
+  type: DESCALING_RECOMMENDED
+- platform: sensia_arena
+  name: Descaling active
+  entity_category: diagnostic
+  type: DESCALING_ACTIVE
+- platform: sensia_arena
+  name: Descaling drainage error
+  entity_category: diagnostic
+  type: DESCALING_ERROR
+- platform: sensia_arena
+  name: Setting change pending
+  entity_category: diagnostic
+  type: PENDING
+- platform: sensia_arena
+  name: Motorized lid supported
+  entity_category: diagnostic
+  type: MOTORIZED_LID_SUPPORTED
+- platform: sensia_arena
+  name: Seat heating supported
+  entity_category: diagnostic
+  type: SEAT_HEATING_SUPPORTED
+- platform: sensia_arena
+  name: Descaling supported
+  entity_category: diagnostic
+  type: DESCALING_SUPPORTED
+- platform: sensia_arena
+  name: Ion and blue LED supported
+  entity_category: diagnostic
+  type: ION_SUPPORTED
 sensor:
-  - platform: template
-    id: model_code
-    name: Reported model code
-    entity_category: diagnostic
-    accuracy_decimals: 0
-    update_interval: never
-
-  - platform: template
-    name: Reported grade code
-    entity_category: diagnostic
-    accuracy_decimals: 0
-    update_interval: 1s
-    lambda: |-
-      if (!sensia::session.have_status) return NAN;
-      return sensia::session.grade;
-  - platform: template
-    name: Reported region code
-    entity_category: diagnostic
-    accuracy_decimals: 0
-    update_interval: 1s
-    lambda: |-
-      if (!sensia::session.have_status) return NAN;
-      return sensia::session.region;
-  - platform: template
-    name: Flush delay
-    entity_category: diagnostic
-    accuracy_decimals: 0
-    update_interval: 1s
-    lambda: |-
-      if (!sensia::session.have_status) return NAN;
-      return (std::array<int,4>{2,6,10,15})[(sensia::session.status[11] >> 5) & 3];
-  - platform: template
-    name: Reported ion mode
-    entity_category: diagnostic
-    accuracy_decimals: 0
-    update_interval: 1s
-    lambda: |-
-      if (!sensia::session.have_status) return NAN;
-      return (sensia::session.status[17] >> 4) & 3;
-  - platform: template
-    name: Reported seat temperature code
-    entity_category: diagnostic
-    accuracy_decimals: 0
-    update_interval: 1s
-    lambda: |-
-      if (!sensia::session.have_status) return NAN;
-      return sensia::session.status[13] >> 5;
-  - platform: template
-    name: Abnormal status code
-    entity_category: diagnostic
-    accuracy_decimals: 0
-    update_interval: 1s
-    lambda: |-
-      if (!sensia::session.have_status) return NAN;
-      return sensia::session.status[14] & 15;
-
+- platform: sensia_arena
+  id: model_code
+  name: Reported model code
+  entity_category: diagnostic
+  accuracy_decimals: 0
+  type: MODEL
+- platform: sensia_arena
+  name: Reported grade code
+  entity_category: diagnostic
+  accuracy_decimals: 0
+  type: GRADE
+- platform: sensia_arena
+  name: Reported region code
+  entity_category: diagnostic
+  accuracy_decimals: 0
+  type: REGION
+- platform: sensia_arena
+  name: Flush delay
+  entity_category: diagnostic
+  accuracy_decimals: 0
+  type: FLUSH_DELAY
+- platform: sensia_arena
+  name: Reported ion mode
+  entity_category: diagnostic
+  accuracy_decimals: 0
+  type: ION_MODE
+- platform: sensia_arena
+  name: Reported seat temperature code
+  entity_category: diagnostic
+  accuracy_decimals: 0
+  type: SEAT_TEMPERATURE_CODE
+- platform: sensia_arena
+  name: Abnormal status code
+  entity_category: diagnostic
+  accuracy_decimals: 0
+  type: ABNORMAL_STATUS
 text_sensor:
-  - platform: template
-    id: protocol_status
-    name: Protocol status
-    entity_category: diagnostic
-    update_interval: never
-
-interval:
-  - interval: 250ms
-    then:
-      - if:
-          condition:
-            lambda: |-
-              return id(pairing_replies).state && sensia::session.pending_reply &&
-                     id(local_time).now().is_valid();
-          then:
-            - ble_server.characteristic.set_value:
-                id: toilet_tx
-                value: !lambda |-
-                  auto now = id(local_time).now();
-                  return sensia::session.reply(now.month, now.day_of_month, now.hour, now.minute);
-            - ble_server.characteristic.notify:
-                id: toilet_tx
-            - lambda: |-
-                sensia::session.pending_reply = false;
-                ESP_LOGI("sensia", "Sent opcode 00, phase %u, settings 0x%02X",
-                         sensia::session.phase, sensia::session.settings | 1);
-
-script:
-  - id: send_command
-    parameters:
-      action: int
-      value: int
-    then:
-      - lambda: |-
-          auto a = static_cast<sensia::Action>(action);
-          if (!id(ble_connected).state || !id(pairing_replies).state || !id(local_time).now().is_valid()) {
-            ESP_LOGW("sensia", "Command rejected: connection, replies, or clock unavailable");
-            return;
-          }
-          if (sensia::session.observed(a) >= 0 && id(command_waiting)) {
-            ESP_LOGW("sensia", "Command rejected: waiting for changed status or reconnect");
-            return;
-          }
-          sensia::WashProfile w;
-          w.pressure = int(id(wash_pressure).state) - 1;
-          w.water = int(id(water_level).state);
-          w.width = int(id(wash_width).state) - 1;
-          w.position = int(id(nozzle_position).state) - 1;
-          w.massage = int(id(massage_mode).state);
-          auto now = id(local_time).now();
-          auto p = sensia::session.command(a, value, w, now.month, now.day_of_month,
-                                          now.hour, now.minute, id(maintenance).state);
-          if (p.empty()) {
-            ESP_LOGW("sensia", "Command rejected: unsupported, unchanged, or precondition unmet");
-            return;
-          }
-          const auto opcode = p[1];
-          id(toilet_tx)->set_value(std::move(p));
-          id(toilet_tx)->notify();
-          // Toggle commands must not be repeated against stale status.
-          if (sensia::session.setting(a) >= 0 || a == sensia::Action::ION_CYCLE ||
-              a == sensia::Action::DELAY_CYCLE || a == sensia::Action::SEAT_TEMP) {
-            id(command_waiting) = true;
-            id(command_action) = action;
-            id(command_status_before) = sensia::session.observed(a);
-          }
-          ESP_LOGI("sensia", "Sent command opcode %02X", opcode);
-
+- platform: sensia_arena
+  id: protocol_status
+  name: Protocol status
+  entity_category: diagnostic
 number:
-  - platform: template
-    id: wash_pressure
-    name: Wash pressure
-    min_value: 1
-    max_value: 6
-    step: 1
-    initial_value: 3
-    optimistic: true
-    restore_value: true
-  - platform: template
-    id: water_level
-    name: Water temperature level
-    min_value: 0
-    max_value: 5
-    step: 1
-    initial_value: 1
-    optimistic: true
-    restore_value: true
-  - platform: template
-    id: wash_width
-    name: Wash width
-    min_value: 1
-    max_value: 3
-    step: 1
-    initial_value: 1
-    optimistic: true
-    restore_value: true
-  - platform: template
-    id: nozzle_position
-    name: Nozzle position
-    min_value: 1
-    max_value: 5
-    step: 1
-    initial_value: 3
-    optimistic: true
-    restore_value: true
-  - platform: template
-    id: massage_mode
-    name: Massage mode
-    min_value: 0
-    max_value: 5
-    step: 1
-    initial_value: 0
-    optimistic: true
-    restore_value: true
-  - platform: template
-    id: dryer_level
-    name: Dryer temperature level
-    min_value: 0
-    max_value: 2
-    step: 1
-    initial_value: 1
-    optimistic: true
-    restore_value: true
-
+- platform: sensia_arena
+  id: wash_pressure
+  name: Wash pressure
+  type: PRESSURE
+- platform: sensia_arena
+  id: water_level
+  name: Water temperature level
+  type: WATER
+- platform: sensia_arena
+  id: wash_width
+  name: Wash width
+  type: WIDTH
+- platform: sensia_arena
+  id: nozzle_position
+  name: Nozzle position
+  type: POSITION
+- platform: sensia_arena
+  id: massage_mode
+  name: Massage mode
+  type: MASSAGE
+- platform: sensia_arena
+  id: dryer_level
+  name: Dryer temperature level
+  type: DRYER
 button:
-  - platform: template
-    name: Stop
-    on_press:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::STOP);
-          value: 0
-  - platform: template
-    name: Open lid
-    on_press:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::OPEN_LID);
-          value: 0
-  - platform: template
-    name: Open seat
-    on_press:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::OPEN_SEAT);
-          value: 0
-  - platform: template
-    name: Close lid and seat
-    on_press:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::CLOSE);
-          value: 0
-  - platform: template
-    name: Full flush
-    on_press:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::FLUSH_FULL);
-          value: 0
-  - platform: template
-    name: Small flush
-    on_press:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::FLUSH_SMALL);
-          value: 0
-  - platform: template
-    name: Rear wash
-    on_press:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::REAR);
-          value: 0
-  - platform: template
-    name: Gentle wash
-    on_press:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::GENTLE);
-          value: 0
-  - platform: template
-    name: Front wash
-    on_press:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::FRONT);
-          value: 0
-  - platform: template
-    name: Dryer
-    on_press:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::DRY);
-          value: !lambda return int(id(dryer_level).state);
-  - platform: template
-    name: Clean nozzle
-    on_press:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::CLEAN_NOZZLE);
-          value: 0
-  - platform: template
-    name: Clean rear nozzle
-    on_press:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::CLEAN_REAR);
-          value: 0
-  - platform: template
-    name: Clean front nozzle
-    on_press:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::CLEAN_FRONT);
-          value: 0
-  - platform: template
-    name: Clean nozzle guard
-    on_press:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::CLEAN_GUARD);
-          value: 0
-  - platform: template
-    name: Cycle ion mode
-    on_press:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::ION_CYCLE);
-          value: 0
-  - platform: template
-    name: Cycle flush delay
-    on_press:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::DELAY_CYCLE);
-          value: 0
-  - platform: template
-    name: Start descaling
-    disabled_by_default: true
-    entity_category: config
-    on_press:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::DESCALE);
-          value: 0
-  - platform: template
-    name: Retry descaling drainage
-    disabled_by_default: true
-    entity_category: config
-    on_press:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::RETRY_DRAIN);
-          value: 0
-
+- platform: sensia_arena
+  name: Stop
+  type: STOP
+- platform: sensia_arena
+  name: Open lid
+  type: OPEN_LID
+- platform: sensia_arena
+  name: Open seat
+  type: OPEN_SEAT
+- platform: sensia_arena
+  name: Close lid and seat
+  type: CLOSE
+- platform: sensia_arena
+  name: Full flush
+  type: FLUSH_FULL
+- platform: sensia_arena
+  name: Small flush
+  type: FLUSH_SMALL
+- platform: sensia_arena
+  name: Rear wash
+  type: REAR
+- platform: sensia_arena
+  name: Gentle wash
+  type: GENTLE
+- platform: sensia_arena
+  name: Front wash
+  type: FRONT
+- platform: sensia_arena
+  name: Dryer
+  type: DRY
+- platform: sensia_arena
+  name: Clean nozzle
+  type: CLEAN_NOZZLE
+- platform: sensia_arena
+  name: Clean rear nozzle
+  type: CLEAN_REAR
+- platform: sensia_arena
+  name: Clean front nozzle
+  type: CLEAN_FRONT
+- platform: sensia_arena
+  name: Clean nozzle guard
+  type: CLEAN_GUARD
+- platform: sensia_arena
+  name: Cycle ion mode
+  type: ION_CYCLE
+- platform: sensia_arena
+  name: Cycle flush delay
+  type: DELAY_CYCLE
+- platform: sensia_arena
+  name: Start descaling
+  disabled_by_default: true
+  entity_category: config
+  type: DESCALE
+- platform: sensia_arena
+  name: Retry descaling drainage
+  disabled_by_default: true
+  entity_category: config
+  type: RETRY_DRAIN
 select:
-  - platform: template
-    name: Seat temperature
-    id: seat_temperature
-    entity_category: config
-    options: ["Off", "28 °C", "30 °C", "32 °C", "34 °C", "36 °C"]
-    update_interval: 1s
-    lambda: |-
-      if (!sensia::session.supports(sensia::Action::SEAT_TEMP)) return {};
-      constexpr uint8_t codes[] = {0,1,3,5,6,7};
-      const char *labels[] = {"Off", "28 °C", "30 °C", "32 °C", "34 °C", "36 °C"};
-      for (int i = 0; i < 6; ++i)
-        if (codes[i] == (sensia::session.status[13] >> 5)) return std::string(labels[i]);
-      return {};
-    set_action:
-      - script.execute:
-          id: send_command
-          action: !lambda return int(sensia::Action::SEAT_TEMP);
-          value: !lambda return int(id(seat_temperature).index_of(x).value_or(99));
+- platform: sensia_arena
+  name: Seat temperature
+  id: seat_temperature
+  entity_category: config
