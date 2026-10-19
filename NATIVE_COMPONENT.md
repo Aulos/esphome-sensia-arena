@@ -178,6 +178,25 @@ unchanged, and pairing replies remained enabled. This confirms recovery after
 one power cycle; long-duration reliability has not yet been measured.
 Other models, grades, regions and boards are unverified.
 
+### Observed periodic disconnects
+
+Later same-day idle monitoring showed occupancy becoming unknown for 3–8 seconds
+roughly every five minutes. Live OTA logs captured the cause at 14:49:09.142:
+BLE disconnected with HCI reason `0x13` (remote device terminated connection).
+The ESP32 API log stream stayed connected throughout. BLE reconnected at
+14:49:13.036, authentication succeeded at 14:49:13.949, and occupancy/status
+returned at 14:49:14.564. This was not an ESP32 reboot.
+
+The hub has no five-minute occupancy expiry. Disconnect resets the session,
+and binary sensors invalidate their state until a fresh authenticated status
+arrives. Retaining occupancy across the gap would show a stale observation;
+command interlocks must continue to require fresh session status regardless of
+any future display smoothing. The reason the toilet ends its session periodically
+is not established by this capture; a toilet idle policy or a missing protocol
+keepalive needs further investigation. No keepalive or display grace period has
+been added on the basis of this evidence.
+
+
 ## Upstream preparation still required
 
 Split this complete external implementation into hub plus one platform, then
