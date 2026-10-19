@@ -3,3 +3,6 @@ secrets.yaml
 .DS_Store
 *.bin
 *.elf
+
+__pycache__/
+*.pyc
