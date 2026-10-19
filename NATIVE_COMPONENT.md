@@ -171,7 +171,11 @@ Stop physically work on this native build. USB logs recorded rear wash opcode
 `7E`, dryer `7B`, and Stop `F2` after each. Physical confirmation comes from the
 owner, not merely from successful packet submission.
 
-A separate power-cycle persistence test remains pending.
+The owner then unplugged USB power for five seconds and reconnected the board
+beside the toilet without pressing pairing buttons. Home Assistant showed a fresh
+BLE connection and `Status received`. All six preference values above remained
+unchanged, and pairing replies remained enabled. This confirms recovery after
+one power cycle; long-duration reliability has not yet been measured.
 Other models, grades, regions and boards are unverified.
 
 ## Upstream preparation still required

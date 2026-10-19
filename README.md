@@ -7,7 +7,8 @@ The current checkout contains a native-component refactor. See
 [NATIVE_COMPONENT.md](NATIVE_COMPONENT.md) for configuration, migration and
 validation. Native firmware now passes bonded reconnection, status reception,
 occupancy and the blue LED setting test on the hardware above. The owner also
-confirmed native Open lid, Rear wash, Dryer and Stop physically work. Other
+confirmed native Open lid, Rear wash, Dryer and Stop physically work. One USB
+power cycle also restored the connection and saved preferences without pairing. Other
 physical confirmations below refer to the preceding YAML implementation unless
 explicitly marked as native.
 
