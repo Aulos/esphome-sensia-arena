@@ -11,6 +11,7 @@ int main() {
   hub.set_server(&server);
   hub.set_time(&clock);
   hub.setup();
+  assert(!hub.occupancy_state().has_value());
   esp_ble_gatts_cb_param_t event{};
   event.add_char.char_uuid = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
   event.add_char.attr_handle = 41;
@@ -123,7 +124,11 @@ int main() {
   ++fake::now_ms;
   hub.loop();
   assert(!hub.occupancy_state().has_value());  // Timer wrap is safe.
+  hub.gatts_event_handler(ESP_GATTS_CONNECT_EVT, 7, &event);
+  hub.gap_event_handler(ESP_GAP_BLE_AUTH_CMPL_EVT, &security);
+  server.service.rx.write(changed, 1);
+  assert(hub.occupancy_state() == true);
   hub.ble_before_disabled_event_handler();
-  assert(!hub.connected());
+  assert(!hub.connected() && !hub.occupancy_state().has_value());
   std::cout << "Native hub lifecycle checks passed\n";
 }

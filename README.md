@@ -77,8 +77,10 @@ Status received
 ```
 
 'Toilet BLE connection' only reports a radio connection, not authenticated pairing.
-'Seat occupied' stays unknown until status arrives and becomes unknown on
-disconnect. Quiet periods longer than 60 seconds were observed while connected,
+'Seat occupied' stays unknown until the first status arrives. During a Bluetooth
+reconnect it retains the last reported value for up to 15 seconds; fresh status
+updates it immediately, and a longer outage makes it unknown. Commands always
+require current session status, never cached occupancy. Quiet periods longer than 60 seconds were observed while connected,
 so there is no arbitrary status timeout. 'Reported model code' is the
 raw 2-bit model field, not a verified product identity.
 

@@ -200,8 +200,15 @@ immediately. The reason the toilet ends its session periodically
 is not established by this capture; a toilet idle policy or a missing protocol
 keepalive needs further investigation. No speculative keepalive has been added. The display grace is covered by host
 tests for reconnect recovery, expiry, repeated reconnects, timer wrap and the
-requirement for fresh status before wash commands. Live validation of the display
-fix is pending.
+requirement for fresh status before wash commands.
+
+Revision `fe2df9cb7d4ffd45d51d732a5b061e2c9fce41e1` was compiled and installed
+OTA on ESPHome 2026.10.0b4, build 14:55:01. At approximately 15:03, a fresh
+Home Assistant page showed BLE connected with a state change about two minutes
+prior, while occupancy remained clear since 14:55:46 with no intervening unknown
+entry. This verifies display continuity across one automatic reconnect. Host tests
+also verify startup unknown and immediate invalidation when BLE is explicitly
+disabled. The periodic radio disconnect itself has not been eliminated.
 
 
 ## Upstream preparation still required
