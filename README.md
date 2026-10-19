@@ -99,7 +99,8 @@ first status of each connection, so configure them to match your preferences.
 ## Scope and diagnostics
 There are no flush, spray, dryer, reset or descaling buttons in this first build.
 Only opcode 00 replies are implemented. Pairing and notification delivery were
-verified; all settings effects and occupancy transitions are not yet verified. A successful compile does not
+verified; seat occupancy transitions were confirmed in Home Assistant. Effects
+of all settings have not been verified. A successful compile does not
 establish that the toilet will connect or accept this handshake.
 
 If it does not connect, retain logs from startup through the pairing attempt.
@@ -142,3 +143,12 @@ sent normal status frames after the opcode-00 reply. Reported model code was 2.
 Host protocol checks, including a captured status frame, passed with address and
 undefined-behavior sanitizers. Raw HCI captures are excluded because they contain
 Bluetooth key material.
+
+Home Assistant recorded occupied at 10:04:28 and clear at 10:04:33 during the
+physical seat test. The former 60-second stale timeout then marked it unknown;
+the cleaned configuration removes that timeout.
+
+Clean firmware was installed on ESPHome 2026.10.0b4 (build 10:04:51) and tested
+with a USB-triggered reboot. Home Assistant showed pairing replies restored ON,
+protocol status received, and occupancy clear at 10:10:26 without restarting
+pairing on the remote. Occupancy remained available beyond two minutes.
