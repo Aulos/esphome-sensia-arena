@@ -1,0 +1,39 @@
+esphome:
+  name: sensia-native-minimal
+esp32:
+  variant: esp32c3
+  framework:
+    type: esp-idf
+logger: {}
+time:
+- platform: sntp
+  id: local_time
+  timezone: UTC
+external_components:
+- source:
+    type: local
+    path: ../components
+  components:
+  - sensia_arena
+esp32_ble:
+  name: LIXIL
+  auth_req_mode: bond
+  max_connections: 1
+esp32_ble_server:
+  max_clients: 1
+sensia_arena:
+  id: sensia_hub
+  time_id: local_time
+  initial_settings: 6
+  pairing_enabled: true
+binary_sensor:
+- platform: sensia_arena
+  type: CONNECTION
+  name: Connection
+- platform: sensia_arena
+  type: OCCUPIED
+  name: Occupancy
+
+wifi:
+  ssid: sensia-test-network
+  password: test-only-password

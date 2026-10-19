@@ -1,0 +1,234 @@
+{
+  "button": [
+    {
+      "name": "Stop"
+    },
+    {
+      "name": "Open lid"
+    },
+    {
+      "name": "Open seat"
+    },
+    {
+      "name": "Close lid and seat"
+    },
+    {
+      "name": "Full flush"
+    },
+    {
+      "name": "Small flush"
+    },
+    {
+      "name": "Rear wash"
+    },
+    {
+      "name": "Gentle wash"
+    },
+    {
+      "name": "Front wash"
+    },
+    {
+      "name": "Dryer"
+    },
+    {
+      "name": "Clean nozzle"
+    },
+    {
+      "name": "Clean rear nozzle"
+    },
+    {
+      "name": "Clean front nozzle"
+    },
+    {
+      "name": "Clean nozzle guard"
+    },
+    {
+      "name": "Cycle ion mode"
+    },
+    {
+      "name": "Cycle flush delay"
+    },
+    {
+      "name": "Start descaling",
+      "disabled_by_default": true,
+      "entity_category": "config"
+    },
+    {
+      "name": "Retry descaling drainage",
+      "disabled_by_default": true,
+      "entity_category": "config"
+    }
+  ],
+  "switch": [
+    {
+      "id": "pairing_replies",
+      "name": "Enable pairing replies",
+      "entity_category": "config"
+    },
+    {
+      "id": "maintenance",
+      "name": "Enable maintenance commands",
+      "entity_category": "config"
+    },
+    {
+      "id": "auto_lid",
+      "name": "Automatic lid",
+      "entity_category": "config"
+    },
+    {
+      "id": "deodorizer",
+      "name": "Automatic deodorizer",
+      "entity_category": "config"
+    },
+    {
+      "id": "blue_led",
+      "name": "Blue LED",
+      "entity_category": "config"
+    },
+    {
+      "id": "operation_sound",
+      "name": "Operation sound",
+      "entity_category": "config"
+    },
+    {
+      "id": "prewash",
+      "name": "Pre-wash",
+      "entity_category": "config"
+    },
+    {
+      "id": "auto_flush",
+      "name": "Automatic flushing",
+      "entity_category": "config"
+    },
+    {
+      "id": "power_saving",
+      "name": "Power saving",
+      "entity_category": "config"
+    },
+    {
+      "id": "heater_auto_off",
+      "name": "Seat heater automatic off",
+      "entity_category": "config"
+    },
+    {
+      "id": "freeze",
+      "name": "Freeze protection",
+      "entity_category": "config"
+    }
+  ],
+  "number": [
+    {
+      "id": "wash_pressure",
+      "name": "Wash pressure"
+    },
+    {
+      "id": "water_level",
+      "name": "Water temperature level"
+    },
+    {
+      "id": "wash_width",
+      "name": "Wash width"
+    },
+    {
+      "id": "nozzle_position",
+      "name": "Nozzle position"
+    },
+    {
+      "id": "massage_mode",
+      "name": "Massage mode"
+    },
+    {
+      "id": "dryer_level",
+      "name": "Dryer temperature level"
+    }
+  ],
+  "select": [
+    {
+      "name": "Seat temperature",
+      "id": "seat_temperature",
+      "entity_category": "config"
+    }
+  ],
+  "binary_sensor": [
+    {
+      "id": "ble_connected",
+      "name": "Toilet BLE connection",
+      "device_class": "connectivity"
+    },
+    {
+      "id": "occupied",
+      "name": "Seat occupied",
+      "device_class": "occupancy"
+    },
+    {
+      "name": "Descaling recommended",
+      "entity_category": "diagnostic"
+    },
+    {
+      "name": "Descaling active",
+      "entity_category": "diagnostic"
+    },
+    {
+      "name": "Descaling drainage error",
+      "entity_category": "diagnostic"
+    },
+    {
+      "name": "Setting change pending",
+      "entity_category": "diagnostic"
+    },
+    {
+      "name": "Motorized lid supported",
+      "entity_category": "diagnostic"
+    },
+    {
+      "name": "Seat heating supported",
+      "entity_category": "diagnostic"
+    },
+    {
+      "name": "Descaling supported",
+      "entity_category": "diagnostic"
+    },
+    {
+      "name": "Ion and blue LED supported",
+      "entity_category": "diagnostic"
+    }
+  ],
+  "sensor": [
+    {
+      "id": "model_code",
+      "name": "Reported model code",
+      "entity_category": "diagnostic"
+    },
+    {
+      "name": "Reported grade code",
+      "entity_category": "diagnostic"
+    },
+    {
+      "name": "Reported region code",
+      "entity_category": "diagnostic"
+    },
+    {
+      "name": "Flush delay",
+      "entity_category": "diagnostic"
+    },
+    {
+      "name": "Reported ion mode",
+      "entity_category": "diagnostic"
+    },
+    {
+      "name": "Reported seat temperature code",
+      "entity_category": "diagnostic"
+    },
+    {
+      "name": "Abnormal status code",
+      "entity_category": "diagnostic"
+    }
+  ],
+  "text_sensor": [
+    {
+      "id": "protocol_status",
+      "name": "Protocol status",
+      "entity_category": "diagnostic"
+    }
+  ]
+}
