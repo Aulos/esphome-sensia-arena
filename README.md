@@ -5,8 +5,11 @@ Test hardware: 39354SH0 and Waveshare ESP32-C3-Zero.
 
 The current checkout contains a native-component refactor. See
 [NATIVE_COMPONENT.md](NATIVE_COMPONENT.md) for configuration, migration and
-validation. It has not yet been hardware-tested; the physical results below
-refer to the preceding YAML implementation.
+validation. Native firmware now passes bonded reconnection, status reception,
+occupancy and the blue LED setting test on the hardware above. The owner also
+confirmed native Open lid, Rear wash, Dryer and Stop physically work. Other
+physical confirmations below refer to the preceding YAML implementation unless
+explicitly marked as native.
 
 This implements the BLE peripheral role recovered from Android app 1.4.1.
 The toilet connects to the ESP32, which advertises as LIXIL. No phone app is

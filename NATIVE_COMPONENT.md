@@ -5,10 +5,10 @@ The integration now has a C++ hub and native ESPHome `button`, `number`, `switch
 configuration only: no lambdas, global session, command scripts or manual callback
 slot build flags. The protocol encoder uses fixed 20-byte arrays.
 
-This refactor has not been flashed to the toilet. Hardware confirmations in the
-README apply to the preceding YAML implementation. The deployed firmware is
-unchanged. Do not flash the test fixtures: they contain dummy Wi-Fi settings and
-omit your Home Assistant API/OTA credentials.
+The native refactor is installed on the test ESP32. Initial hardware results are
+recorded below; earlier wash/dryer confirmations in the README still apply to
+the preceding YAML implementation. Do not flash the test fixtures: they contain
+dummy Wi-Fi settings and omit your Home Assistant API/OTA credentials.
 
 ## Minimal configuration
 
@@ -147,7 +147,32 @@ manifest.
   ESPHome 2026.9.1 toolchain.
 - Python lint and formatting checks passed.
 
-These results do not validate over-the-air operation or the installed 2026.10 beta.
+## Native hardware validation on 2026-10-19
+
+Firmware revision `e2889f7ce314e053f1b169215eb25b1b3462ed12` compiled in the
+ESPHome dashboard with 2026.10.0b4 and ESP-IDF 5.5.5, then installed over OTA on
+Waveshare ESP32-C3-Zero paired with Sensia Arena 39354SH0. A private full-flash
+backup and original configuration were saved before installation.
+
+- Boot and Home Assistant API connection succeeded.
+- Existing Bluetooth bond authenticated without pressing the pairing buttons.
+  Status reception succeeded after the board was moved beside the toilet.
+- Model, grade and region reported 2/2/2.
+- Existing grouped entity names and six stored preference values were retained:
+  pressure 6, width 3, nozzle position 3, water temperature 5, massage 0, dryer 2.
+- User sit/stand test produced occupied at 12:14:32 and unoccupied at 12:14:44
+  in Home Assistant history.
+- Blue LED was commanded off and then restored on. The reported setting changed
+  and the pending-command flag cleared after each command. Physical light output
+  was not separately confirmed by the user.
+
+The owner confirmed Open lid, Rear wash followed by Stop, and Dryer followed by
+Stop physically work on this native build. USB logs recorded rear wash opcode
+`7E`, dryer `7B`, and Stop `F2` after each. Physical confirmation comes from the
+owner, not merely from successful packet submission.
+
+A separate power-cycle persistence test remains pending.
+Other models, grades, regions and boards are unverified.
 
 ## Upstream preparation still required
 
