@@ -276,5 +276,8 @@ not a physical flush. Physical flush validation requires an equipped installatio
 
 The owner also confirmed Dryer starts warm airflow while seated and Stop ends
 it. The USB capture contains dryer opcode 7B followed by Stop opcode F2.
-Gentle/front wash and cleaning/descaling still lack physical confirmation;
+Front wash and cleaning/descaling still lack physical confirmation;
 commands appearing in a log alone are not treated as physical validation.
+
+The owner subsequently confirmed gentle wash physically works. The earlier USB
+capture contains its opcode EE; physical confirmation comes from the owner.
