@@ -2,7 +2,7 @@
 packages:
   sensia_arena:
     url: https://github.com/Aulos/esphome-sensia-arena
-    ref: main
+    ref: v0.1.0
     refresh: always
     files: [packages/sensia-arena.yaml]
 

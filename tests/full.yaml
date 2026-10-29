@@ -193,6 +193,12 @@ number:
   type: DRYER
 button:
 - platform: sensia_arena
+  name: Test command 1 (0x17)
+  type: TEST_COMMAND_1
+- platform: sensia_arena
+  name: Test command 2 (0x57)
+  type: TEST_COMMAND_2
+- platform: sensia_arena
   name: Stop
   type: STOP
 - platform: sensia_arena

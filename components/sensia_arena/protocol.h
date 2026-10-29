@@ -37,7 +37,9 @@ enum class Action {
   FREEZE,
   SEAT_TEMP,
   DESCALE,
-  RETRY_DRAIN
+  RETRY_DRAIN,
+  TEST_COMMAND_1,
+  TEST_COMMAND_2
 };
 struct WashProfile {
   int pressure{2}, water{1}, width{0}, position{2}, massage{0};
@@ -67,11 +69,13 @@ struct Session {
   }
   bool heated_seat() const { return model == 2 && (region == 3 || region == 4); }
   bool supports(Action a) const {
-    if (!have_status || !known_model() || int(a) < int(Action::STOP) || int(a) > int(Action::RETRY_DRAIN)) return false;
+    if (!have_status || !known_model() || int(a) < int(Action::STOP) || int(a) > int(Action::TEST_COMMAND_2)) return false;
     switch (a) {
       case Action::OPEN_LID:
       case Action::OPEN_SEAT:
       case Action::CLOSE:
+      case Action::TEST_COMMAND_1:
+      case Action::TEST_COMMAND_2:
       case Action::AUTO_LID:
         return grade == 2 || grade == 3;
       case Action::BLUE_LED:
@@ -187,6 +191,12 @@ struct Session {
         break;
       case Action::CLOSE:
         p[1] = 0x47;
+        break;
+      case Action::TEST_COMMAND_1:
+        p[1] = 0x17;
+        break;
+      case Action::TEST_COMMAND_2:
+        p[1] = 0x57;
         break;
       case Action::FLUSH_FULL:
         p[1] = 0xF3;

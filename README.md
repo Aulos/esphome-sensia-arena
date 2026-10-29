@@ -3,7 +3,7 @@
 Experimental ESPHome controls for GROHE Sensia Arena BLE toilets.
 Test hardware: 39354SH0 and Waveshare ESP32-C3-Zero.
 
-The current checkout contains a native-component refactor. See
+Release `v0.1.0` includes the protocol library and native ESPHome component. See
 [NATIVE_COMPONENT.md](NATIVE_COMPONENT.md) for configuration, migration and
 validation. Native firmware now passes bonded reconnection, status reception,
 occupancy and the blue LED setting test on the hardware above. The owner also
@@ -295,3 +295,18 @@ capture contains its opcode EE; physical confirmation comes from the owner.
 The owner subsequently confirmed front wash and all four nozzle-cleaning
 controls physically work. Descaling remains unverified. These confirmations
 apply to the YAML-based firmware, before the native refactor.
+
+## Experimental protocol buttons (v0.1.0)
+
+The package exposes `Test command 1 (0x17)` and `Test command 2 (0x57)`.
+Custom configurations can use button types `TEST_COMMAND_1` and `TEST_COMMAND_2`.
+Their physical effects are unknown; neither opcode is identified in the recovered
+Android app. They are not labeled as open, close or toggle.
+Both use the existing 20-byte command encoder, retaining common settings and
+identity, and require an authenticated, subscribed session with current status.
+They use the same model/grade restriction as the lid controls as a testing scope,
+not evidence that the firmware supports them. They run only on an explicit button
+press and are never automatically retried. No hardware validation is claimed.
+
+The release pins both package and component to `v0.1.0`. Updating the source does
+not flash an existing device; rebuild and install its firmware to get the buttons.

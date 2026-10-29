@@ -5,7 +5,7 @@ external_components:
   - sensia_arena
   refresh: 0s
 substitutions:
-  sensia_component_ref: native-refactor
+  sensia_component_ref: v0.1.0
   initial_settings: '0x06'
   timezone: Europe/Warsaw
 esphome:
@@ -200,6 +200,12 @@ number:
   name: Dryer temperature level
   type: DRYER
 button:
+- platform: sensia_arena
+  name: Test command 1 (0x17)
+  type: TEST_COMMAND_1
+- platform: sensia_arena
+  name: Test command 2 (0x57)
+  type: TEST_COMMAND_2
 - platform: sensia_arena
   name: Stop
   type: STOP

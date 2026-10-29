@@ -66,6 +66,18 @@ int main() {
     return s.command(a, v, wash, 10, 19, 12, 30, maintenance);
   };
   assert(s.region == 2 && s.supports(A::BLUE_LED) && s.supports(A::DESCALE));
+  for (auto action : {A::TEST_COMMAND_1, A::TEST_COMMAND_2}) {
+    auto expected_test = s.reply(10, 19, 12, 30).value();
+    expected_test[1] = action == A::TEST_COMMAND_1 ? 0x17 : 0x57;
+    assert(command(action).value() == expected_test);
+    s.have_status = false;
+    assert(!command(action));
+    s.have_status = true;
+    s.grade = 1;
+    assert(!command(action));
+    s.grade = 2;
+  }
+
   assert(!s.supports(A::SEAT_TEMP) && !s.supports(A::FREEZE));
   assert(s.setting(A::AUTO_LID) == 0 && s.setting(A::DEODORIZER) == 1);
   assert(command(A::REAR).has_value() == false && command(A::DRY).has_value() == false);

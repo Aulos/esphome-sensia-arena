@@ -1,6 +1,12 @@
 {
   "button": [
     {
+      "name": "Test command 1 (0x17)"
+    },
+    {
+      "name": "Test command 2 (0x57)"
+    },
+    {
       "name": "Stop"
     },
     {

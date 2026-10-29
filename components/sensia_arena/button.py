@@ -30,6 +30,8 @@ TYPES = {
         "DELAY_CYCLE",
         "DESCALE",
         "RETRY_DRAIN",
+        "TEST_COMMAND_1",
+        "TEST_COMMAND_2",
     ]
 }
 CONFIG_SCHEMA = (

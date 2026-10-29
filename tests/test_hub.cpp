@@ -59,6 +59,8 @@ int main() {
   fake::now_ms += 250;
   hub.loop();
   assert(hub.session().have_status);
+  assert(hub.send_command(Action::TEST_COMMAND_1) && fake::last_frame[1] == 0x17);
+  assert(hub.send_command(Action::TEST_COMMAND_2) && fake::last_frame[1] == 0x57);
   assert(!hub.send_command(Action::REAR));     // Occupancy interlock.
   assert(!hub.send_command(Action::DESCALE));  // Maintenance interlock.
   fake::send_result = -1;
